@@ -1,0 +1,55 @@
+# Configuration for FIXBODY - 86 high-quality pairs
+
+# Model settings
+pretrained_model_name_or_path: "Qwen/Qwen-Image-Edit"
+
+# Dataset settings
+dataset_name: "nbeerbower/FIXBODY"
+dataset_split: "train"
+max_samples: null  # Use all 86
+
+# Prompt settings
+use_prompt_directly: true
+prompt_template: "{prompt}"
+
+# LoRA configuration
+lora_rank: 64
+lora_alpha: 128
+lora_dropout: 0.01
+target_modules: ["to_k", "to_q", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"]
+
+# Training settings
+train_batch_size: 1
+gradient_accumulation_steps: 2
+num_train_epochs: 50
+max_train_steps: 3000
+learning_rate: 1e-4
+lr_scheduler: "cosine"
+lr_warmup_steps: 50
+
+# Optimizer settings
+use_8bit_adam: true
+adam_beta1: 0.9
+adam_beta2: 0.999
+adam_weight_decay: 0.001
+adam_epsilon: 1e-8
+max_grad_norm: 1.0
+
+# Mixed precision
+mixed_precision: "bf16"
+
+# Checkpointing and logging
+output_dir: "./output_fixbody_full2"
+logging_dir: "logs"
+checkpointing_steps: 100
+checkpoints_total_limit: 15
+report_to: "wandb"
+tracker_project_name: "qwen-fixbody"
+run_name: "r64-1e4-50ep-0.01ld"
+
+# Data processing
+save_embeddings: true
+dataloader_num_workers: 1
+
+# Memory optimization
+gradient_checkpointing: true

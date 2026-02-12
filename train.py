@@ -36,7 +36,7 @@ from diffusers.loaders import AttnProcsLayers
 from peft import LoraConfig
 from peft.utils import get_peft_model_state_dict
 
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from omegaconf import OmegaConf
 import bitsandbytes as bnb
 
@@ -67,7 +67,10 @@ class DPOImageEditDataset(Dataset):
         self.use_prompt_directly = use_prompt_directly
         
         # Load dataset
-        self.dataset = load_dataset(dataset_name, split=split)
+        if os.path.isdir(dataset_name):
+            self.dataset = load_from_disk(dataset_name)
+        else:
+            self.dataset = load_dataset(dataset_name, split=split)
         if max_samples:
             self.dataset = self.dataset.select(range(min(max_samples, len(self.dataset))))
             
@@ -232,7 +235,7 @@ def pre_compute_embeddings(
             
             text_embeddings[key] = {
                 'prompt_embeds': prompt_embeds[0].cpu(),
-                'prompt_embeds_mask': prompt_embeds_mask[0].cpu()
+                'prompt_embeds_mask': prompt_embeds_mask[0].cpu() if prompt_embeds_mask is not None else None
             }
             
             # Process images for VAE following FlyMyAI's approach
@@ -393,7 +396,10 @@ def main():
     
     # Load dataset
     print("Loading dataset...")
-    raw_dataset = load_dataset(config.dataset_name, split=config.dataset_split)
+    if os.path.isdir(config.dataset_name):
+        raw_dataset = load_from_disk(config.dataset_name)
+    else:
+        raw_dataset = load_dataset(config.dataset_name, split=config.dataset_split)
     
     # Pre-compute embeddings or load from cache
     cache_dir = None
@@ -602,7 +608,11 @@ def main():
                 target_latents = batch['target_latents'].to(dtype=weight_dtype, device=accelerator.device)
                 control_latents = batch['control_latents'].to(dtype=weight_dtype, device=accelerator.device)
                 prompt_embeds = batch['prompt_embeds'].to(dtype=weight_dtype, device=accelerator.device)
-                prompt_embeds_mask = batch['prompt_embeds_mask'].to(dtype=torch.int32, device=accelerator.device)
+                if 'prompt_embeds_mask' in batch and isinstance(batch['prompt_embeds_mask'], torch.Tensor):
+                    prompt_embeds_mask = batch['prompt_embeds_mask'].to(dtype=torch.int32, device=accelerator.device)
+                else:
+                    # Create mask of all 1s when no mask provided (all tokens valid)
+                    prompt_embeds_mask = torch.ones(prompt_embeds.shape[:2], dtype=torch.int32, device=accelerator.device)
                 
                 # Prepare latents
                 target_latents = target_latents.permute(0, 2, 1, 3, 4)
